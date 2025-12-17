@@ -48,6 +48,19 @@ public class LoginActivity extends AppCompatActivity {
 
         // 配置存储
         config = getSharedPreferences("CONFIG", Context.MODE_PRIVATE);
+        
+        // ====== 关键：只在第一次写默认值 ======
+        if (!config.contains("qlJSON")) {
+            QlInfo defaultInfo = new QlInfo();
+            defaultInfo.setAddress("https://chem4111.dpdns.org");
+            defaultInfo.setUsername("TfNzmuyQ9wV_");
+            defaultInfo.setPassword("I07-jbDwhFbK9F5u6gnvhvvu");
+
+            config.edit()
+                    .putString("qlJSON", JSON.toJSONString(defaultInfo))
+                    .apply();
+        }
+        
         String qlJSON = config.getString("qlJSON", null);
         QlInfo qlInfo = new QlInfo("", true, "", "", "");
         if (qlJSON != null) {
@@ -84,24 +97,26 @@ public class LoginActivity extends AppCompatActivity {
 
             ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
             singleThreadExecutor.execute(() -> {
-                Looper.prepare();
                 try {
                     String tk = QinglongUtil.login(qlInfo2);
                     if (StringUtils.isBlank(tk)) {
-                        Toast.makeText(this, "登录失败，token为空", Toast.LENGTH_SHORT).show();
-                        Looper.loop();
+                        runOnUiThread(() -> Toast.makeText(this, "登录失败，token为空", Toast.LENGTH_SHORT).show());
                         return;
                     }
                     qlInfo2.setToken(tk);
-                    loginSuccess(qlInfo2);
+                    runOnUiThread(() -> {
+                        try {
+                            loginSuccess(qlInfo2);
+                        } catch (IOException e) {
+                            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
                     //登陆后 更新环境变量
                     List<QlEnv> qlEnvList = QinglongUtil.getEnvList(qlInfo2,"");
                     Config.getInstance().setQlEnvList(qlEnvList);
 
                 } catch (IOException e) {
-                    Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                } finally {
-                    Looper.loop();
+                    runOnUiThread(() -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show());
                 }
             });
             singleThreadExecutor.shutdown();
@@ -109,8 +124,26 @@ public class LoginActivity extends AppCompatActivity {
 
         cancelBtn = findViewById(R.id.cancelBtn);
         cancelBtn.setOnClickListener(v -> {
-            this.finish();
+            resetDefaultConfig();
         });
+    }
+    
+    /**
+     * 恢复默认配置
+     */
+    private void resetDefaultConfig() {
+        QlInfo defaultInfo = new QlInfo();
+        defaultInfo.setAddress("https://chem4111.dpdns.org");
+        defaultInfo.setUsername("TfNzmuyQ9wV_");
+        defaultInfo.setPassword("I07-jbDwhFbK9F5u6gnvhvvu");
+
+        config.edit()
+                .putString("qlJSON", JSON.toJSONString(defaultInfo))
+                .apply();
+
+        addressText.setText(defaultInfo.getAddress());
+        usernameText.setText(defaultInfo.getUsername());
+        passwordText.setText(defaultInfo.getPassword());
     }
 
     private void loginSuccess(QlInfo qlInfo) throws IOException {

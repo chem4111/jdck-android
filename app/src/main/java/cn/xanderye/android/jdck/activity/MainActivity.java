@@ -2,11 +2,9 @@ package cn.xanderye.android.jdck.activity;
 
 import android.app.AlertDialog;
 import android.content.*;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,7 +17,6 @@ import cn.xanderye.android.jdck.R;
 import cn.xanderye.android.jdck.config.Config;
 import cn.xanderye.android.jdck.entity.QlEnv;
 import cn.xanderye.android.jdck.entity.QlInfo;
-import cn.xanderye.android.jdck.receiver.SMSReceiver;
 import cn.xanderye.android.jdck.util.JDUtil;
 import cn.xanderye.android.jdck.util.QinglongUtil;
 import com.alibaba.fastjson.JSON;
@@ -54,8 +51,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Set<String> phoneSet = new HashSet<>();
 
-    private Boolean smsEnabled;
-    private SMSReceiver smsReceiver;
+    // ...existing code...
 
 
     @Override
@@ -66,12 +62,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 配置存储
         config = getSharedPreferences("CONFIG", Context.MODE_PRIVATE);
-        // 获取短信接收器配置
-        smsEnabled = config.getBoolean("smsEnabled", false);
-        if (smsEnabled) {
-            // 注册接收器
-            registerSMSReceiver();
-        }
+        // ...existing code...
 
         webView = findViewById(R.id.webView);
         Config.getInstance().setWebView(webView);
@@ -96,15 +87,15 @@ public class MainActivity extends AppCompatActivity {
                 cookie = cookieManager.getCookie(url);
                 super.onPageFinished(view, url);
             }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                Toast.makeText(view.getContext(), "网页加载失败，请检查网络或目标地址！", Toast.LENGTH_LONG).show();
+                super.onReceivedError(view, request, error);
+            }
         });
         // 配置账号下拉框
         phoneSpinner = findViewById(R.id.phoneSpinner);
-        String phoneStr = config.getString("phoneStr", null);
-        if (phoneStr != null) {
-            String[] phones = phoneStr.split("\r\n");
-            phoneSet = new HashSet<>(Arrays.asList(phones));
-            updatePhone();
-        }
         // 添加按钮
         addBtn = findViewById(R.id.addBtn);
         addBtn.setOnClickListener(v -> {
@@ -214,125 +205,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        unregisterSMSReceiver();
         super.onDestroy();
     }
 
-    public boolean onCreateOptionsMenu(Menu menu) {
-        String text = smsEnabled ? "关闭短信识别" : "开启短信识别";
-        menu.add(Menu.NONE, 1, 1, "青龙面板");
-        menu.add(Menu.NONE, 2, 2, text);
-        menu.add(Menu.NONE, 3, 3, "关于");
-        return true;
-    }
-
-    public boolean onOptionsItemSelected(MenuItem item){
-        switch (item.getItemId()){
-            case 1: {
-                Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-                startActivity(intent);
-            } break;
-            case 2: {
-                String toastText;
-                if (smsEnabled) {
-                    toastText = "关闭成功，请重启应用生效";
-                } else {
-                    String[] permissions = new String[]{"android.permission.RECEIVE_SMS", "android.permission.READ_SMS"};
-                    boolean result = checkPermissionAllGranted(permissions);
-                    if (!result) {
-                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                        builder.setMessage("未获取到短信读取权限，是否跳转设置页面并开启权限（MIUI需要额外开启通知类短信权限）？");
-                        builder.setPositiveButton("设置", (dialog, which) -> {
-                            openSettings();
-                        });
-                        builder.create().show();
-                        break;
-                    }
-                    toastText = "开启成功，请重启应用生效";
-                }
-                Toast.makeText(this, toastText, Toast.LENGTH_LONG).show();
-                smsEnabled = !smsEnabled;
-                String text = smsEnabled ? "关闭短信识别" : "开启短信识别";
-                item.setTitle(text);
-                SharedPreferences.Editor edit = config.edit();
-                edit.putBoolean("smsEnabled", smsEnabled);
-                edit.apply();
-            } break;
-            case 3: {
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setMessage("@XanderYe 版权所有 @yclown修改");
-                builder.setPositiveButton("项目页面", (dialog, which) -> {
-                    Uri uri = Uri.parse("https://github.com/yclown/jdck-android");
-                    Intent intent = new Intent();
-                    intent.setAction("android.intent.action.VIEW");
-                    intent.setData(uri);
-                    startActivity(intent);
-                });
-                builder.create().show();
-            }
-            break;
-        }
-        return true;
-    }
-
-    /**
-     * 检查权限
-     * @param permissions
-     * @return boolean
-     * @author XanderYe
-     * @date 2022/12/30
-     */
-    private boolean checkPermissionAllGranted(String[] permissions) {
-        for (String permission : permissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * 打开设置
-     * @param
-     * @return void
-     * @author XanderYe
-     * @date 2022/12/30
-     */
-    private void openSettings() {
-        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-        intent.setData(Uri.fromParts("package", getPackageName(), null));
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
-    }
-
-    /**
-     * 注册短信接收器
-     * @param
-     * @return void
-     * @author XanderYe
-     * @date 2022/12/30
-     */
-    private void registerSMSReceiver() {
-        smsReceiver = new SMSReceiver();
-        IntentFilter filter = new IntentFilter();
-        filter.setPriority(1000);
-        filter.addAction(SMSReceiver.SMS_RECEIVED);
-        registerReceiver(smsReceiver, filter);
-    }
-
-    /**
-     * 取消注册短信接收器
-     * @param
-     * @return void
-     * @author XanderYe
-     * @date 2022/12/30
-     */
-    private void unregisterSMSReceiver() {
-        if (smsReceiver != null) {
-            unregisterReceiver(smsReceiver);
-            smsReceiver = null;
-        }
-    }
 
     /**
      * 清空cookie并加载页面

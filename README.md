@@ -1,13 +1,11 @@
 # 青龙面板 京东cookie 助手 安卓版
 
-## PC版
-[JD_Get](https://github.com/yclown/ql_jd_cookie)
 
 ## 说明
-v2
-青龙面板 获取京东cookie使用 
 
-原项目 地址(https://github.com/XanderYe/jdck-android) 项目作者没有更新，就接过来自己更了
+需要修改使用JDK11，太新版本跑不起来
+更换了国内源，更新更快
+内置青龙后台方便使用
 
 ## 优化
 * 修改青龙面板的对应的接口地址

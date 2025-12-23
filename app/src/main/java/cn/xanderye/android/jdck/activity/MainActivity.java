@@ -41,7 +41,8 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
 
-    private static final String JD_URL = "https://home.m.jd.com/myJd/home.action";
+    // private static final String JD_URL = "https://home.m.jd.com/myJd/home.action";
+    private static final String JD_URL = "https://plogin.m.jd.com/login/login";
 
     private static final Pattern PHONE_PATTERN = Pattern.compile("1\\d{10}");
 

@@ -95,7 +95,8 @@ public class QinglongUtil {
         headers.put("Authorization", "Bearer " + qlInfo.getToken());
         JSONObject params = new JSONObject();
         params.put("name", qlEnv.getName());
-        params.put("remarks", qlEnv.getRemarks());
+        // 注释掉remarks字段，避免覆盖青龙面板中用户手动设置的备注
+        // params.put("remarks", qlEnv.getRemarks());
         params.put("value", qlEnv.getValue());
         HttpUtil.ResEntity resEntity;
         if (qlEnv.get_id() != null) {

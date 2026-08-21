@@ -180,4 +180,46 @@ public class QinglongUtil {
         }
         return ;
     }
+
+    /**
+     * 获取所有定时任务 (增加搜索关键词以提升速度)
+     */
+    public static JSONArray getCrons(QlInfo qlInfo, String searchValue) throws IOException {
+        String url = normalizeAddress(qlInfo.getAddress()) + "/open/crons?searchValue=" + (searchValue != null ? searchValue : "");
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("Authorization", "Bearer " + qlInfo.getToken());
+        HttpUtil.ResEntity resEntity = HttpUtil.doGet(url, headers, null, null);
+        if (resEntity.getStatusCode() != 200) {
+            throw new IOException("服务器" + resEntity.getStatusCode() + "错误");
+        }
+        JSONObject res = JSON.parseObject(resEntity.getResponse());
+        if (res.getInteger("code") != 200) {
+            throw new IOException(res.getString("message"));
+        }
+        Object dataObj = res.get("data");
+        if (dataObj instanceof JSONArray) {
+            return (JSONArray) dataObj;
+        } else if (dataObj instanceof JSONObject) {
+            return ((JSONObject) dataObj).getJSONArray("data");
+        }
+        return new JSONArray();
+    }
+
+    /**
+     * 获取任务日志内容
+     */
+    public static String getCronLog(QlInfo qlInfo, String taskId) throws IOException {
+        String url = normalizeAddress(qlInfo.getAddress()) + "/open/crons/" + taskId + "/log";
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("Authorization", "Bearer " + qlInfo.getToken());
+        HttpUtil.ResEntity resEntity = HttpUtil.doGet(url, headers, null, null);
+        if (resEntity.getStatusCode() != 200) {
+            throw new IOException("服务器" + resEntity.getStatusCode() + "错误");
+        }
+        JSONObject res = JSON.parseObject(resEntity.getResponse());
+        if (res.getInteger("code") != 200) {
+            throw new IOException(res.getString("message"));
+        }
+        return res.getString("data");
+    }
 }

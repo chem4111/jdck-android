@@ -1,8 +1,9 @@
 <resources>
-    <string name="app_name">GetCookie</string>
+    <string name="app_name">青龙登录</string>
     <string name="get_cookie_btn_text">获取CK</string>
+    <string name="asset_query_btn_text">资产查询</string>
     <string name="clear_cookie_btn_text">重置</string>
-    <string name="ql_login_name">青龙面板登录</string>
+    <string name="ql_login_name">青龙登录</string>
     <string name="ql_address_text">青龙地址：</string>
     <string name="ql_username_text">ClientID：</string>
     <string name="ql_password_text">ClientSecret：</string>

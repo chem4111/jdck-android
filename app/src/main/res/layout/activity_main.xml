@@ -11,23 +11,37 @@
     <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:background="#FFFFFF">
         <Button
-                android:text="@string/get_cookie_btn_text"
-                android:layout_width="0dp"
-                android:layout_weight="1.0"
-                android:layout_height="wrap_content"
                 android:id="@+id/getCookieBtn"
-                android:layout_marginLeft="4dp"
-                android:layout_marginRight="4dp"/>
-        <Button
-                android:text="@string/clear_cookie_btn_text"
                 android:layout_width="0dp"
-                android:layout_weight="1.0"
                 android:layout_height="wrap_content"
+                android:layout_weight="1.0"
+                android:text="@string/get_cookie_btn_text"
+                android:textAllCaps="false"
+                android:layout_margin="2dp"
+                app:cornerRadius="8dp" />
+        <Button
+                android:id="@+id/assetQueryBtn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.0"
+                android:text="@string/asset_query_btn_text"
+                android:textAllCaps="false"
+                android:layout_margin="2dp"
+                app:cornerRadius="8dp" />
+        <Button
                 android:id="@+id/clearCookieBtn"
-                android:layout_marginLeft="4dp"
-                android:layout_marginRight="4dp"/>
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.0"
+                android:text="@string/clear_cookie_btn_text"
+                android:textAllCaps="false"
+                android:layout_margin="2dp"
+                app:cornerRadius="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
     </LinearLayout>
     <WebView
             android:layout_width="match_parent"

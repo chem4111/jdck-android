@@ -2,9 +2,14 @@ package cn.xanderye.android.jdck.activity;
 
 import android.content.*;
 import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.webkit.*;
 import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import cn.xanderye.android.jdck.R;
 import cn.xanderye.android.jdck.config.Config;
@@ -12,6 +17,8 @@ import cn.xanderye.android.jdck.entity.QlEnv;
 import cn.xanderye.android.jdck.entity.QlInfo;
 import cn.xanderye.android.jdck.util.JDUtil;
 import cn.xanderye.android.jdck.util.QinglongUtil;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.lang3.StringUtils;
 
 import java.net.URLEncoder;
@@ -20,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
+import android.util.Log;
 
 /**
  * 精简版 MainActivity：只做一件事 —— WebView 打开京东登录页，
@@ -28,13 +37,16 @@ import java.util.concurrent.Executors;
  */
 public class MainActivity extends AppCompatActivity {
 
-    private Button getCookieBtn, clearCookieBtn;
+    private Button getCookieBtn, assetQueryBtn, clearCookieBtn;
     private WebView webView;
+    private AlertDialog progressDialog;
 
     // 基础地址与回调配置
     private static final String JD_LOGIN_BASE = "https://plogin.m.jd.com/login/login";
     private static final String DEFAULT_CALLBACK = "https://m.jd.com/";
     
+    private static final String ASSET_TASK_CMD = "task 6dylan6_jdpro/jd_bean_change.js";
+
     private static final String KEY_WEBVIEW_STATE = "web_view_state";
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -109,9 +121,141 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 资产查询
+        assetQueryBtn = findViewById(R.id.assetQueryBtn);
+        assetQueryBtn.setOnClickListener(v -> {
+            String currentUrl = webView.getUrl();
+            String cookie = CookieManager.getInstance().getCookie(currentUrl);
+            Map<String, Object> map = JDUtil.formatCookies(cookie);
+            String ptPin = (String) map.get("pt_pin");
+            if (StringUtils.isBlank(ptPin)) {
+                Toast.makeText(this, "未获取到 pt_pin，请确保已登录", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            fetchAssetInfo(ptPin);
+        });
+
         // 重置
         clearCookieBtn = findViewById(R.id.clearCookieBtn);
         clearCookieBtn.setOnClickListener(v -> resetWebview());
+    }
+
+    /** 获取资产信息 */
+    private void fetchAssetInfo(String ptPin) {
+        QlInfo qlInfo = Config.getInstance().getQlInfo();
+        if (qlInfo == null || StringUtils.isBlank(qlInfo.getToken())) {
+            Toast.makeText(this, "未登录青龙面板，无法查询", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 使用自定义现代化加载 UI
+        View loadingView = LayoutInflater.from(this).inflate(R.layout.dialog_loading, null);
+        TextView msgTv = loadingView.findViewById(R.id.loading_msg);
+        msgTv.setText("正在同步云端资产…");
+        
+        progressDialog = new AlertDialog.Builder(this)
+                .setView(loadingView)
+                .setCancelable(false)
+                .create();
+        
+        if (progressDialog.getWindow() != null) {
+            progressDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+        
+        progressDialog.show();
+
+        executorService.execute(() -> {
+            try {
+                long startTime = System.currentTimeMillis();
+                // 1. 精准搜索资产统计任务 (极大减少数据传输量)
+                JSONArray crons = QinglongUtil.getCrons(qlInfo, "jd_bean_change.js");
+                Log.d("AssetQuery", "获取任务列表耗时: " + (System.currentTimeMillis() - startTime) + "ms");
+                
+                String taskId = null;
+                for (int i = 0; i < crons.size(); i++) {
+                    JSONObject cron = crons.getJSONObject(i);
+                    String command = cron.getString("command");
+                    if (command != null && command.contains("jd_bean_change.js")) {
+                        taskId = String.valueOf(cron.get("id") != null ? cron.get("id") : cron.get("_id"));
+                        break;
+                    }
+                }
+
+                if (taskId == null) {
+                    throw new Exception("未在青龙中找到资产统计任务 [jd_bean_change.js]");
+                }
+
+                // 2. 获取日志内容
+                long logStartTime = System.currentTimeMillis();
+                String log = QinglongUtil.getCronLog(qlInfo, taskId);
+                Log.d("AssetQuery", "获取日志耗时: " + (System.currentTimeMillis() - logStartTime) + "ms");
+                if (StringUtils.isBlank(log)) {
+                    throw new Exception("任务日志为空，请先在青龙手动执行一次统计任务");
+                }
+
+                // 3. 解析属于当前 pt_pin 的日志段
+                String userLog = extractUserLog(log, ptPin);
+                
+                runOnUiThread(() -> {
+                    if (progressDialog != null) progressDialog.dismiss();
+                    showLogDialog(userLog);
+                });
+
+            } catch (Exception e) {
+                Log.e("AssetQuery", "查询资产异常", e);
+                String fullError = e.getClass().getSimpleName() + ": " + e.getMessage();
+                runOnUiThread(() -> {
+                    if (progressDialog != null) progressDialog.dismiss();
+                    Toast.makeText(this, "查询失败: " + fullError, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    /** 提取指定用户的日志段 */
+    private String extractUserLog(String fullLog, String ptPin) {
+        String separator = "----------开始查询";
+        // 查找包含该账号的行
+        int targetIndex = fullLog.indexOf(ptPin);
+        if (targetIndex == -1) {
+            return "未在日志中找到您的资产信息 [" + ptPin + "]，请确认脚本已统计该账号。";
+        }
+        
+        // 找到该账号对应的分隔符位置（向上找）
+        int start = fullLog.lastIndexOf(separator, targetIndex);
+        if (start == -1) {
+            return "日志格式不匹配，未找到资产信息。";
+        }
+        
+        // 找到下一个分隔符或日志结束位置（向下找）
+        int end = fullLog.indexOf(separator, start + separator.length());
+        if (end == -1) {
+            // 如果没有下一个用户，尝试查找统计结束标志
+            end = fullLog.indexOf("添加缓存", start);
+            if (end == -1) end = fullLog.length();
+        }
+        
+        return fullLog.substring(start, end).trim();
+    }
+
+    /** 显示日志弹窗 */
+    private void showLogDialog(String content) {
+        View resultView = LayoutInflater.from(this).inflate(R.layout.dialog_asset_result, null);
+        TextView contentTv = resultView.findViewById(R.id.asset_content);
+        contentTv.setText(content);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(resultView)
+                .create();
+
+        resultView.findViewById(R.id.btn_close).setOnClickListener(v -> dialog.dismiss());
+
+        // 设置圆角背景
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        dialog.show();
     }
 
     /** 推送 Cookie 到青龙面板 */
@@ -199,7 +343,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void resetWebview() {
         CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.removeAllCookies(null);
+        cookieManager.removeAllCookies(value -> {});
         cookieManager.flush();
         
         webView.clearHistory();

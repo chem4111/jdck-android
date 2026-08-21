@@ -87,8 +87,7 @@ public class LoginActivity extends AppCompatActivity {
         QlInfo finalQlInfo = qlInfo;
         ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
         singleThreadExecutor.execute(() -> {
-            // 自动登录用较短超时，避免网络不通时卡在加载页几十秒
-            HttpUtil.setTimeout(10000, 10000);
+            // 自动登录使用极速超时
             try {
                 String tk = QinglongUtil.login(finalQlInfo);
                 if (StringUtils.isBlank(tk)) {

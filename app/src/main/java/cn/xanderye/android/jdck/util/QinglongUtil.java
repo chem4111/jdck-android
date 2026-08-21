@@ -18,6 +18,29 @@ import java.util.Map;
  */
 public class QinglongUtil {
 
+    /** 统一去掉地址末尾的斜杠，避免生成 // 路径 */
+    private static String normalizeAddress(String address) {
+        if (address == null) return "";
+        if (address.endsWith("/")) {
+            address = address.substring(0, address.length() - 1);
+        }
+        return address;
+    }
+
+    /**
+     * 安全地把 QlEnv._id（String）转为 int，满足青龙 array[integer] 的接口要求
+     */
+    private static Integer envIdToInt(String id) throws IOException {
+        if (id == null || id.isEmpty()) {
+            throw new IOException("环境变量ID为空");
+        }
+        try {
+            return Integer.parseInt(id.trim());
+        } catch (NumberFormatException e) {
+            throw new IOException("环境变量ID格式错误: " + id);
+        }
+    }
+
     /**
      * 登录
      * @param qlInfo
@@ -27,10 +50,7 @@ public class QinglongUtil {
      */
 
     public static String login(QlInfo qlInfo) throws IOException {
-        String url = qlInfo.getAddress();
-        if (url.endsWith("/")) {
-            url = url.substring(0, url.length() - 1);
-        }
+        String url = normalizeAddress(qlInfo.getAddress());
 
         url += "/open/auth/token?client_id="+qlInfo.getUsername()+"&client_secret="+qlInfo.getPassword();
 
@@ -47,7 +67,7 @@ public class QinglongUtil {
 
 
     public static List<QlEnv> getEnvList(QlInfo qlInfo) throws IOException {
-        String url = qlInfo.getAddress() + "/api/envs";
+        String url = normalizeAddress(qlInfo.getAddress()) + "/api/envs";
         url += "?searchValue=&t=" + System.currentTimeMillis();
         Map<String, Object> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + qlInfo.getToken());
@@ -67,7 +87,7 @@ public class QinglongUtil {
      * @date 2024/3/22 11:00
      */
     public static List<QlEnv> getEnvList(QlInfo qlInfo,String key) throws IOException {
-        String url = qlInfo.getAddress() + "/open/envs?searchValue="+key;
+        String url = normalizeAddress(qlInfo.getAddress()) + "/open/envs?searchValue="+key;
         Map<String, Object> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + qlInfo.getToken());
         HttpUtil.ResEntity resEntity = HttpUtil.doGet(url, headers, null, null);
@@ -90,18 +110,17 @@ public class QinglongUtil {
      * @date 2024/3/22 11:00
      */
     public static boolean saveEnv(QlInfo qlInfo, QlEnv qlEnv) throws IOException {
-        String url = qlInfo.getAddress() + "/open/envs";;
+        String url = normalizeAddress(qlInfo.getAddress()) + "/open/envs";
         Map<String, Object> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + qlInfo.getToken());
         JSONObject params = new JSONObject();
         params.put("name", qlEnv.getName());
-        // 注释掉remarks字段，避免覆盖青龙面板中用户手动设置的备注
-        // params.put("remarks", qlEnv.getRemarks());
+        params.put("remarks", qlEnv.getRemarks());
         params.put("value", qlEnv.getValue());
         HttpUtil.ResEntity resEntity;
         if (qlEnv.get_id() != null) {
-            // 更新
-            params.put("id", qlEnv.get_id());
+            // 更新 —— id 必须是 integer，否则青龙报参数错误
+            params.put("id", envIdToInt(qlEnv.get_id()));
             resEntity = HttpUtil.doPutJSON(url, headers, null, params.toJSONString());
 
         } else {
@@ -117,6 +136,19 @@ public class QinglongUtil {
         if (res.getInteger("code") != 200) {
             throw new IOException(res.getString("message"));
         }
+        // 新增成功后把青龙返回的 _id 回写到 qlEnv，便于紧接着 enable
+        if (qlEnv.get_id() == null) {
+            JSONArray data = res.getJSONArray("data");
+            if (data != null && !data.isEmpty()) {
+                JSONObject created = data.getJSONObject(0);
+                if (created != null) {
+                    Object idObj = created.get("id");
+                    if (idObj != null) {
+                        qlEnv.set_id(String.valueOf(idObj));
+                    }
+                }
+            }
+        }
         return true;
     }
     /**
@@ -128,13 +160,14 @@ public class QinglongUtil {
      * @date 2024/3/22 11:00
      */
     public static void EableEnv(QlInfo qlInfo,QlEnv qlEnv) throws IOException {
-        String url = qlInfo.getAddress() + "/open/envs/enable";;
+        String url = normalizeAddress(qlInfo.getAddress()) + "/open/envs/enable";
         Map<String, Object> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + qlInfo.getToken());
         HttpUtil.ResEntity resEntity;
         if (qlEnv.get_id() != null) {
+            // 青龙要求 array[integer]，把 String 类型的 _id 转成 int
             JSONArray ja=new JSONArray();
-            ja.add(qlEnv.get_id());
+            ja.add(envIdToInt(qlEnv.get_id()));
 
             resEntity = HttpUtil.doPutJSON(url, headers, null, ja.toJSONString());
             if (resEntity.getStatusCode() != 200) {

@@ -1,0 +1,55 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:autoMirrored="false">
+
+    <!-- Background: Indigo 800 -->
+    <path
+        android:fillColor="#283593"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <!-- Text 'chem' - Centered & Rectified Geometric Style -->
+    <group
+        android:translateX="13"
+        android:translateY="46">
+
+        <!-- c: Open square -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M12,4 L4,4 L4,20 L12,20" />
+
+        <!-- h: Tall stem + Right-facing arch -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M22,-4 L22,20 M22,8 L32,8 L32,20" />
+
+        <!-- e: Stylized open E to prevent any blobbing/mirroring issues -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M52,4 L42,4 L42,20 L52,20 M42,12 L50,12" />
+
+        <!-- m: Double blocky arches -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M62,8 L62,20 M62,8 L72,8 L72,20 M72,8 L82,8 L82,20" />
+
+    </group>
+</vector>
